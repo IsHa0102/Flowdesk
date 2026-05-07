@@ -1,56 +1,79 @@
 import { NextResponse } from "next/server";
-
-function randomFrom(arr: string[]) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { callClaude } from "@/lib/ai";
 
 export async function POST(req: Request) {
-  const { mood } = await req.json();
+  try {
+    const session = await getServerSession(authOptions);
+    const body = await req.json();
+    const mood: string = body.mood ?? "calm";
 
-  const openings = [
-    "Today carries a quiet undercurrent.",
-    "There’s a subtle shift in the air.",
-    "Something within you feels different.",
-    "The day unfolds with a gentle tone.",
-  ];
+    // Lightweight memory context passed from client — no schema changes needed
+    const clientMemory = body.memory ?? null;
 
-  const moodLines: any = {
-    calm: [
-      "Stillness becomes your advantage.",
-      "Peace is not passive, it is powerful.",
-      "Let silence sharpen your awareness.",
-    ],
-    focused: [
-      "Clarity is your compass.",
-      "Your attention feels deliberate and sharp.",
-      "Depth comes easily when you let it.",
-    ],
-    tired: [
-      "Softness is not weakness.",
-      "Rest is part of progress.",
-      "Move slowly, but move kindly.",
-    ],
-    motivated: [
-      "Momentum hums beneath your skin.",
-      "Energy gathers around intention.",
-      "This is a day for beginning.",
-    ],
-  };
+    let taskContext = "";
+    let memoryContext = "";
 
-  const closings = [
-    "Choose one meaningful step.",
-    "Let the small act matter.",
-    "Trust the rhythm you’re in.",
-    "Begin without waiting for perfect conditions.",
-  ];
+    if (session?.user?.email) {
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        include: { tasks: true },
+      });
 
-  const reflection = `
-${randomFrom(openings)} 
-${randomFrom(moodLines[mood] || [])} 
-${randomFrom(closings)}
-  `.trim();
+      if (user?.tasks?.length) {
+        const total = user.tasks.length;
+        const completed = user.tasks.filter((t) => t.completed).length;
+        const pending = total - completed;
+        const completionPct = Math.round((completed / total) * 100);
 
-  return NextResponse.json({
-    reflection,
-  });
+        const catCounts = user.tasks.reduce<Record<string, number>>((acc, t) => {
+          const c = t.category ?? "Uncategorized";
+          acc[c] = (acc[c] || 0) + 1;
+          return acc;
+        }, {});
+
+        const sorted = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+        const topCategory = sorted[0]?.[0];
+        const topShare = total > 0 ? Math.round(((sorted[0]?.[1] ?? 0) / total) * 100) : 0;
+        const categoryLine = sorted.map(([k, v]) => `${k}: ${v}`).join(", ");
+
+        taskContext = `Task snapshot:
+- ${total} total, ${completed} completed (${completionPct}%), ${pending} pending
+- Top category: ${topCategory} (${topShare}% of tasks)
+- Breakdown: ${categoryLine}`;
+
+        if (clientMemory?.recentCategories || clientMemory?.dominantCategory) {
+          memoryContext = `Behavioral context:
+- Recently worked on: ${clientMemory.recentCategories?.join(", ") ?? "various tasks"}
+- Dominant focus: ${clientMemory.dominantCategory ?? topCategory}`;
+        }
+      }
+    }
+
+    const systemPrompt = `You are a calm, insightful productivity coach. Write a daily reflection for a user.
+Rules:
+- Max 2-3 sentences only
+- Be specific to their data — don't be generic or vague
+- Reference their category focus or completion rate naturally when relevant
+- Tone by mood: calm=gentle and steady, focused=crisp and direct, stressed=reassuring and grounding, motivated=energizing and affirming
+- No bullet points, no markdown, no headers
+- Sound like a thoughtful human, not an AI`;
+
+    const userMessage = `Mood: ${mood}
+
+${taskContext || "No tasks added yet."}${memoryContext ? "\n\n" + memoryContext : ""}
+
+Write their reflection now.`;
+
+    const reflection = await callClaude(systemPrompt, userMessage, 150);
+
+    return NextResponse.json({ reflection: reflection.trim() });
+  } catch (err) {
+    console.error("REFLECTION ERROR:", err);
+    return NextResponse.json({
+      reflection: "Take it one step at a time — you're doing fine.",
+    });
+  }
 }
