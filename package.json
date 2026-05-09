@@ -1,19 +1,26 @@
 {
-  "name": "auraboard",
+  "name": "flowdesk",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-  "dev": "next dev",
-  "build": "prisma generate && next build",
-  "start": "next start"
-},
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start"
+  },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@prisma/client": "^5.22.0",
+    "framer-motion": "^12.38.0",
+    "html2canvas": "^1.4.1",
+    "konva": "^10.3.0",
     "next": "16.1.6",
     "next-auth": "^4.24.13",
     "prisma": "^5.22.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-konva": "^19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

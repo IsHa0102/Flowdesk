@@ -1,9 +1,9 @@
-# Auraboard (FlowDesk) - Project Onboarding
+# FlowDesk - Project Onboarding
 
-You are an AI assistant helping with the **Auraboard (FlowDesk)** project. Please read the following context to understand the current structure, tech stack, features, and status of the project before answering any further questions or writing code.
+You are an AI assistant helping with the **FlowDesk** project. Please read the following context to understand the current structure, tech stack, features, and status of the project before answering any further questions or writing code.
 
 ## 1. Project Overview & Purpose
-Auraboard (referred to in the UI as **FlowDesk**) is a minimal, focused productivity dashboard. It helps users manage their daily tasks while providing an AI-generated reflection space to keep them grounded. 
+FlowDesk is a minimal, focused productivity dashboard. It helps users manage their daily tasks while providing an AI-generated reflection space to keep them grounded. 
 
 The primary goal is to provide a clean, distraction-free environment where users can authenticate securely, track their task progress, categorize their work, and receive contextual reflections based on their current mood.
 
@@ -16,7 +16,7 @@ The primary goal is to provide a clean, distraction-free environment where users
 
 ## 3. Project Structure
 ```
-auraboard/
+flowdesk/
 ├── app/
 │   ├── api/
 │   │   ├── auth/          # NextAuth routes
@@ -54,7 +54,7 @@ The database uses Prisma with the following core models:
 When I ask for a new feature, a bug fix, or a modification:
 1. **Follow the App Router Convention:** Ensure any new routes or API endpoints adhere to the Next.js App Router paradigm (`app/api/.../route.ts`).
 2. **Maintain Prisma Schema Sync:** If a new feature requires database changes, remember to update `prisma/schema.prisma` and remind me to run `prisma db push` or `prisma migrate`.
-3. **Respect the Minimal UI:** Keep Tailwind styling clean, minimal, and aligned with the current "FlowDesk" aesthetic (gray scales, white cards, minimal borders).
+3. **Respect the Minimal UI:** Keep Tailwind styling clean, minimal, and aligned with the current FlowDesk aesthetic (gray scales, white cards, minimal borders).
 4. **TypeScript Safety:** Ensure proper typing for React components, API responses, and database interactions.
 
-Please acknowledge that you have read this onboarding document and are ready to assist with the Auraboard (FlowDesk) project!
+Please acknowledge that you have read this onboarding document and are ready to assist with the FlowDesk project!

@@ -1,29 +1,102 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Mood theme tokens ──────────────────────────────────────────────────────── */
+
+:root,
+[data-mood="calm"] {
+  --bg-primary:     #F7F4EF;
+  --card-bg:        #FFFDFC;
+  --border-soft:    #D8E2D7;
+  --accent:         #89A88D;
+  --accent-hover:   #7A9D7E;
+  --accent-soft:    #DDE9DE;
+  --accent-label:   #A5C9A9;
+  --glow:           rgba(137, 168, 141, 0.22);
+  --text-primary:   #2F332F;
+  --text-secondary: #6E746E;
+  --heading-color:  #273028;
+  --muted-text:     #7C837C;
+  --chip-text:      #36513C;
 }
 
+[data-mood="focused"] {
+  --bg-primary:     #F6F3F7;
+  --card-bg:        #FFFFFF;
+  --border-soft:    #DDD5F3;
+  --accent:         #7C5CFA;
+  --accent-hover:   #6A4EE6;
+  --accent-soft:    #ECE7FF;
+  --accent-label:   #A394E0;
+  --glow:           rgba(124, 92, 250, 0.20);
+  --text-primary:   #2B2438;
+  --text-secondary: #6F6780;
+  --heading-color:  #241D35;
+  --muted-text:     #857E97;
+  --chip-text:      #4A36A6;
+}
+
+[data-mood="tired"] {
+  --bg-primary:     #F7F2F5;
+  --card-bg:        #FFFDFE;
+  --border-soft:    #E5D8E8;
+  --accent:         #B28DBA;
+  --accent-hover:   #9E7DA8;
+  --accent-soft:    #F0E5F3;
+  --accent-label:   #C5ACCC;
+  --glow:           rgba(178, 141, 186, 0.18);
+  --text-primary:   #403544;
+  --text-secondary: #847489;
+  --heading-color:  #35283A;
+  --muted-text:     #9A8D9D;
+  --chip-text:      #6D5375;
+}
+
+[data-mood="motivated"] {
+  --bg-primary:     #FFF6F4;
+  --card-bg:        #FFFFFF;
+  --border-soft:    #F3D6DF;
+  --accent:         #D95074;
+  --accent-hover:   #C03E62;
+  --accent-soft:    #FFE2EA;
+  --accent-label:   #E87898;
+  --glow:           rgba(217, 80, 116, 0.22);
+  --text-primary:   #3B2A30;
+  --text-secondary: #7E6570;
+  --heading-color:  #321F25;
+  --muted-text:     #967883;
+  --chip-text:      #A52D4F;
+}
+
+/* ── Global mood transition ─────────────────────────────────────────────────── */
+/* The * selector (specificity 0,0,0) is overridden by any Tailwind class,      */
+/* so interactive elements with duration-150 keep their fast transitions.        */
+/* Structural elements without explicit transitions get the smooth 350ms ambient */
+/* color change when the mood switches.                                           */
+
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 350ms;
+  transition-timing-function: ease;
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────────── */
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans, Arial, Helvetica, sans-serif);
 }
 
-
-
+/* ── Scrollbar utility (used in WellnessCard) ──────────────────────────────── */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -9,7 +9,10 @@ import ReflectionCard from "@/components/ReflectionCard";
 import BottomNav from "@/components/BottomNav";
 import PlanMyDay from "@/components/PlanMyDay";
 import InsightsCard from "@/components/InsightsCard";
+import WellnessCard from "@/components/WellnessCard";
+import OverdueCard from "@/components/OverdueCard";
 import { computeInsights, buildMemorySummary } from "@/lib/insights";
+import { useMood } from "@/context/MoodContext";
 
 type Task = {
   id: string;
@@ -17,21 +20,47 @@ type Task = {
   completed: boolean;
   category?: string | null;
   aiCategorized?: boolean;
+  dueDate?: string | null;
+  createdAt?: string;
 };
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const { mood } = useMood();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [mood, setMood] = useState("calm");
   const [reflection, setReflection] = useState("Loading...");
   const [refreshKey, setRefreshKey] = useState(0);
   const [filter, setFilter] = useState<"all" | "active" | "done">("all");
 
-  // Computed client-side — no API call needed
-  const insights = useMemo(() => computeInsights(tasks), [tasks]);
-  const memory = useMemo(() => buildMemorySummary(tasks), [tasks]);
+  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
 
-  // Load tasks
+  // Today's workspace: incomplete tasks with no due date or due today,
+  // plus completed tasks that were due today or (no due date) created today.
+  const todayTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (!t.completed) {
+        if (!t.dueDate) return true;
+        return new Date(t.dueDate).toLocaleDateString("en-CA") === todayStr;
+      } else {
+        if (t.dueDate) {
+          return new Date(t.dueDate).toLocaleDateString("en-CA") === todayStr;
+        }
+        return new Date(t.createdAt ?? todayStr).toLocaleDateString("en-CA") === todayStr;
+      }
+    });
+  }, [tasks, todayStr]);
+
+  // Overdue: incomplete tasks whose due date has already passed
+  const overdueTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (t.completed || !t.dueDate) return false;
+      return new Date(t.dueDate).toLocaleDateString("en-CA") < todayStr;
+    });
+  }, [tasks, todayStr]);
+
+  const insights = useMemo(() => computeInsights(todayTasks), [todayTasks]);
+  const memory   = useMemo(() => buildMemorySummary(tasks), [tasks]);
+
   useEffect(() => {
     if (status !== "authenticated") return;
     fetch("/api/tasks")
@@ -39,7 +68,6 @@ export default function Home() {
       .then(setTasks);
   }, [status]);
 
-  // Reflection — pass memory context for richer output
   useEffect(() => {
     const fetchReflection = async () => {
       setReflection("Loading...");
@@ -52,13 +80,13 @@ export default function Home() {
       setReflection(data.reflection);
     };
     fetchReflection();
-  }, [mood, refreshKey]); // intentionally omit `memory` — only re-fetch on mood/manual refresh
+  }, [mood, refreshKey]); // intentionally omit `memory`
 
-  const addTask = async (text: string, category: string) => {
+  const addTask = async (text: string, category: string, dueDate: string | null) => {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, category }),
+      body: JSON.stringify({ text, category, dueDate }),
     });
     if (!res.ok) return;
     const newTask = await res.json();
@@ -84,22 +112,24 @@ export default function Home() {
     setTasks((prev) => prev.filter((t) => t.id !== task.id));
   };
 
-  const filteredTasks = tasks.filter((t) => {
+  const filteredTasks = todayTasks.filter((t: Task) => {
     if (filter === "active") return !t.completed;
-    if (filter === "done") return t.completed;
+    if (filter === "done")   return t.completed;
     return true;
   });
 
   const firstName = session?.user?.name?.split(" ")[0] ?? "there";
   const hour = new Date().getHours();
-  const greeting =
-    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   // ─── Loading ───────────────────────────────────────────────────────────────
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-gray-900 animate-spin" />
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <div
+          className="w-6 h-6 rounded-full border-2 animate-spin"
+          style={{ borderColor: "var(--accent-soft)", borderTopColor: "var(--accent)" }}
+        />
       </div>
     );
   }
@@ -107,18 +137,21 @@ export default function Home() {
   // ─── Unauthenticated ───────────────────────────────────────────────────────
   if (status !== "authenticated") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-        <div className="w-full max-w-sm bg-white border border-gray-100 rounded-2xl shadow-sm p-10 space-y-8 text-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
+        <div className="w-full max-w-sm bg-[var(--card-bg)] border border-[var(--border-soft)] rounded-2xl shadow-sm p-10 space-y-8 text-center">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-gray-900 mx-auto flex items-center justify-center">
+            <div
+              className="w-10 h-10 rounded-xl mx-auto flex items-center justify-center"
+              style={{ background: "var(--accent)" }}
+            >
               <span className="text-white text-lg">✦</span>
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">FlowDesk</h1>
-            <p className="text-sm text-gray-400">Your calm, focused workspace</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--heading-color)]">FlowDesk</h1>
+            <p className="text-sm text-[var(--text-secondary)]">Your calm, focused workspace</p>
           </div>
           <button
             onClick={() => signIn("google")}
-            className="w-full py-3 rounded-xl border border-gray-200 bg-white text-gray-800 text-sm font-medium hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all duration-150 flex items-center justify-center gap-2"
+            className="w-full py-3 rounded-xl border border-[var(--border-soft)] bg-[var(--card-bg)] text-[var(--text-primary)] text-sm font-medium hover:bg-[var(--accent-soft)] active:scale-95 transition-all duration-150 flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -135,57 +168,59 @@ export default function Home() {
 
   // ─── Authenticated ─────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 pb-24 md:pb-0">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24 md:pb-0">
       <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 space-y-6">
 
         {/* Header */}
         <header className="flex justify-between items-center">
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">FlowDesk</p>
-            <h1 className="text-xl font-semibold text-gray-900 mt-0.5">
+            <p className="text-xs text-[var(--accent-label)] uppercase tracking-widest font-medium">FlowDesk</p>
+            <h1 className="text-xl font-semibold text-[var(--heading-color)] mt-0.5">
               {greeting}, {firstName}
             </h1>
           </div>
-          <div className="hidden md:flex items-center gap-5 text-sm text-gray-400">
-            <Link href="/profile" className="hover:text-gray-800 transition">Profile</Link>
-            <button onClick={() => signOut()} className="hover:text-gray-800 transition">Sign out</button>
+          <div className="hidden md:flex items-center gap-5 text-sm text-[var(--text-secondary)]">
+            <Link href="/planner"     className="hover:text-[var(--heading-color)] transition">Weekly Planner</Link>
+            <Link href="/growth"      className="hover:text-[var(--heading-color)] transition">Growth</Link>
+            <Link href="/vision-board"className="hover:text-[var(--heading-color)] transition">Board</Link>
+            <Link href="/profile"     className="hover:text-[var(--heading-color)] transition">Profile</Link>
+            <button onClick={() => signOut()} className="hover:text-[var(--heading-color)] transition">Sign out</button>
           </div>
           <Link
             href="/profile"
-            className="md:hidden w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600"
+            className="md:hidden w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
+            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
           >
             {session.user?.name?.[0] ?? "?"}
           </Link>
         </header>
 
-        {/* Reflection */}
+        {/* Reflection — mood selector inside, no mood/onMoodChange props needed */}
         <ReflectionCard
           reflection={reflection}
-          mood={mood}
-          onMoodChange={setMood}
           onRefresh={() => setRefreshKey((k) => k + 1)}
         />
 
         {/* Tasks */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 space-y-5">
+        <div className="bg-[var(--card-bg)] border border-[var(--border-soft)] rounded-2xl shadow-sm p-6 space-y-5">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400">Tasks</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-[var(--accent-label)]">Tasks</h2>
               {insights.total > 0 && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-[var(--text-secondary)]">
                   {insights.completed}/{insights.total} done
                 </span>
               )}
             </div>
-            <PlanMyDay mood={mood} />
+            <PlanMyDay />
           </div>
 
           {/* Progress bar */}
           {insights.total > 0 && (
-            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-[var(--border-soft)] rounded-full overflow-hidden">
               <div
-                className="h-full bg-gray-900 rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${insights.completionPct}%` }}
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${insights.completionPct}%`, background: "var(--accent)" }}
               />
             </div>
           )}
@@ -194,15 +229,15 @@ export default function Home() {
 
           {/* Filter tabs */}
           {insights.total > 0 && (
-            <div className="flex gap-1 border-b border-gray-100 pb-1">
+            <div className="flex gap-1 border-b border-[var(--border-soft)] pb-1">
               {(["all", "active", "done"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
                   className={`px-3 py-1 text-xs rounded-md transition-colors duration-150 capitalize ${
                     filter === f
-                      ? "bg-gray-100 text-gray-800 font-medium"
-                      : "text-gray-400 hover:text-gray-600"
+                      ? "bg-[var(--accent-soft)] text-[var(--heading-color)] font-medium"
+                      : "text-[var(--text-secondary)] hover:text-[var(--heading-color)]"
                   }`}
                 >
                   {f}
@@ -213,21 +248,27 @@ export default function Home() {
 
           {/* Task list */}
           {filteredTasks.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">
+            <p className="text-sm text-[var(--text-secondary)] text-center py-6">
               {filter === "done"
-                ? "Nothing completed yet — keep going!"
-                : "All clear. Add something to get started."}
+                ? "Nothing completed yet — your wins are still ahead."
+                : "Your space is clear. Add something intentional."}
             </p>
           ) : (
             <ul className="space-y-2">
-              {filteredTasks.map((task) => (
+              {filteredTasks.map((task: Task) => (
                 <TaskItem key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask} />
               ))}
             </ul>
           )}
         </div>
 
-        {/* Insights — replaces the placeholder */}
+        {/* Overdue — collapsed by default, gentle non-judgmental tone */}
+        <OverdueCard tasks={overdueTasks} onToggle={toggleTask} onDelete={deleteTask} />
+
+        {/* Wellness */}
+        <WellnessCard />
+
+        {/* Insights */}
         <InsightsCard data={insights} />
 
       </div>

@@ -15,12 +15,28 @@ export async function POST(req: Request) {
 
     let taskContext = "";
     let memoryContext = "";
+    let journalContext = "";
 
     if (session?.user?.email) {
       const user = await prisma.user.findUnique({
         where: { email: session.user.email },
         include: { tasks: true },
       });
+
+      if (user) {
+        const latestEntry = await prisma.dailyEntry.findFirst({
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (latestEntry) {
+          const gratitudeList = latestEntry.gratitude.filter(Boolean).join(", ");
+          journalContext = `Journal check-in:
+- Mood: ${latestEntry.mood}
+- Grateful for: ${gratitudeList || "—"}
+- Win of the day: ${latestEntry.win || "—"}`;
+        }
+      }
 
       if (user?.tasks?.length) {
         const total = user.tasks.length;
@@ -63,7 +79,7 @@ Rules:
 
     const userMessage = `Mood: ${mood}
 
-${taskContext || "No tasks added yet."}${memoryContext ? "\n\n" + memoryContext : ""}
+${taskContext || "No tasks added yet."}${memoryContext ? "\n\n" + memoryContext : ""}${journalContext ? "\n\n" + journalContext : ""}
 
 Write their reflection now.`;
 
